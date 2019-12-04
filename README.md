@@ -1,4 +1,4 @@
-## Amazon SageMaker Ground Truth Sample Task UIs
+## Amazon Augmented AI Sample Task UIs
 
 This repository contains sample task UIs for [Amazon Augmented AI (A2I)](https://aws.amazon.com/augmented-ai/). It contains subdirectories by use case (audio, images, text, video, other).
 
