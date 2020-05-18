@@ -13,8 +13,8 @@
 <crowd-form>
   <full-instructions header="Translation Quality Check Instructions">
     <p>The source document has been broken up into sentences and each sentence has been translated using <a href="https://aws.amazon.com/translate/" target="blank" >Amazon Translate</a>. The source text, along with their
-      <strong>machine generated translation</strong> is shown in the table. Please review the translated text and make changes so the read more like something a person would write rather than an automated translation.
-      Please do this for all the sentences. Once done, click on submit to finish the job. The system will reassemble the edited text to match the original source formatting.
+      <strong>machine generated translation</strong> is shown in the table. Please review the translated text and make changes so it reads more like something a person would write rather than an automated translation.
+      Please do this for all the sentences. Once done, click on <strong>Submit</strong> to finish the job. The system will reassemble the edited text to match the original source formatting.
     </p>
 
   </full-instructions>
@@ -33,7 +33,7 @@
       <tr>
         <th>Sentence</th>
         <th>Original ({{ task.input.SourceLanguage }})</th>
-        <th>Translation  ({{ task.input.TargetLanguage }})</th>
+        <th>Translation ({{ task.input.TargetLanguage }})</th>
       </tr>
 
       {% for pair in task.input.translationPairs %}
