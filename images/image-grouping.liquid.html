@@ -1,0 +1,323 @@
+<!--
+Sample AWS SageMaker: Ground Truth and Augmented AI (A2I) worker task template 
+for grouping images together into an arbitrary number of groups
+-->
+<!-- 
+    Task Input Object example:
+{
+  "images": [
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/64/Clydesdale-busch-gardens.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:Clydesdale-busch-gardens.jpg",
+      "name": "Clydesdale-busch-gardens"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/a/a4/Shetland_pony_dalmatian2.jpg",
+      "info_url": "https://en.wikipedia.org/wiki/File:Shetland_pony_dalmatian2.jpg",
+      "name": "Shetland_pony_dalmatian2"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Clydesdale_horse.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:Clydesdale_horse.jpg",
+      "name": "Clydesdale_horse"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Zaniskari_Horse_in_Ladakh.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:Zaniskari_Horse_in_Ladakh.jpg",
+      "name": "Zaniskari_Horse_in_Ladakh"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/69/June_odd-eyed-cat_cropped.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:June_odd-eyed-cat_cropped.jpg",
+      "name": "June_odd-eyed-cat_cropped"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/4/4d/Cat_November_2010-1a.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:Cat_November_2010-1a.jpg",
+      "name": "Cat_November_2010-1a"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Beagle_puppy_Cadet_2.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:Beagle_puppy_Cadet_2.jpg",
+      "name": "Beagle_puppy_Cadet_2"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/5/5b/My_new_puppy%2C_Link.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:My_new_puppy,_Link.jpg",
+      "name": "My_new_puppy%2C_Link"
+    },
+    {
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/0/05/Rottweiler_puppy_-21603071920.jpg",
+      "info_url": "https://commons.wikimedia.org/wiki/File:Rottweiler_puppy_-21603071920.jpg",
+      "name": "File:Rottweiler_puppy_-21603071920"
+    }
+  ]
+}
+
+-->
+<!-- AWS Crowd HTML Elements Dependency-->
+<script src="https://assets.crowd.aws/crowd-html-elements.js"></script>
+
+<!-- Third Party Dependencies-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.20/lodash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/draggable/1.0.0-beta.8/draggable.bundle.js"></script>
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css"
+/>
+
+<!-- Application styles -->
+<style>
+  .row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .column {
+    flex-grow: 1;
+    flex-basis: 0;
+
+    max-width: 100%;
+    padding: 0.25rem;
+    margin: 0.25rem;
+  }
+  .column.sm {
+    width: 150px;
+    flex-grow: unset;
+    flex-basis: unset;
+  }
+  @media only screen and (min-width: 768px) {
+    .column.sm {
+      width: 250px;
+      flex-grow: unset;
+      flex-basis: unset;
+    }
+  }
+
+  .StackedList {
+    border: 1px dashed #b1b1b1;
+    padding: 0.5rem;
+    min-height: 100px;
+  }
+
+  .StackedList .title {
+    margin-bottom: 0.25rem;
+  }
+  .StackedList img {
+    cursor: pointer;
+  }
+
+  .StackedList.NewGroup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #bbdff0;
+  }
+  .StackedList.NewGroup .title {
+    font-size: 1.5em;
+  }
+
+  .StackedList img {
+    padding: 0.25rem;
+    box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.3);
+    margin: 0.15rem;
+  }
+  .top {
+    margin-bottom: 0.5rem;
+  }
+  .top img {
+    max-width: calc(10% - 3px);
+  }
+
+  .bottom img {
+    max-width: calc(45% - 3px);
+  }
+  .modal {
+    max-width: 80%;
+    width: unset;
+  }
+  .modal-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .modal img {
+    max-height: 80vh;
+    max-width: 90%;
+  }
+  .modal pre {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 80%;
+  }
+</style>
+
+<!-- Lodash Template Definitions-->
+<script type="text/template" id="images-template">
+  <% images.forEach(function(image) { %>
+    <img class="draggable" src="<%= image.image_url %>" data-info-url="<%= image.info_url %>" data-name="<%= image.name %>" onclick="openModal(event)"/>
+  <% }) %>
+</script>
+<script type="text/template" id="image-group-template">
+  <div class="StackedList">
+    <div class="title">Group <%= number %></div>
+  </div>
+</script>
+<script type="text/template" id="modal-content">
+  <div><img src="<%= _.escape(image_url) %>" /></div>
+  <div><pre><%= _.escape( name) %></pre></div>
+  <div><a target="_blank" href="<%= _.escape(info_url) %>"><%= _.escape(info_url) %></a></div>
+  <p>Please <strong>Shift + Click</strong> to Open Above Link</p>
+</script>
+
+<!-- Crowd HTML Elements Submit Form -->
+<crowd-form>
+  <short-instructions
+    >Please group similar images. Drag an image to "New Group" to get
+    started.</short-instructions
+  >
+
+  <div id="errorBox"></div>
+
+  <p>Please group similar images.</p>
+  <p>Drag an image to <strong>New Group</strong> to get started.</p>
+
+  <div class="row top">
+    <div class="column">
+      <div class="StackedList" id="unclassified">
+        <div class="title">Not yet grouped</div>
+        <div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dropBoxes" class="row bottom">
+    <div class="row groups"></div>
+    <div class="column sm">
+      <div class="StackedList NewGroup">
+        <div class="title">New Group</div>
+      </div>
+    </div>
+  </div>
+
+  <input type="hidden" name="images" id="answerInput" />
+  <div style="height: 500px"></div>
+</crowd-form>
+
+<!-- Image info modal -->
+<div style="display: none">
+  <div id="info-modal" class="modal">
+    <div class="modal-content"></div>
+  </div>
+</div>
+
+<!-- AWS SageMaker Ground Truth / A2I task input object (see example task input object at the top of this file) -->
+<div
+  id="task_input_json"
+  style="display: none"
+  data-content="{{ task.input | to_json | escape }}"
+></div>
+
+<!-- Inject our worker's answer into Crowd HTML Element form on submit -->
+<script>
+  document.querySelector("crowd-form").onsubmit = function (event) {
+    const groups = Array.from(
+      document.querySelectorAll(".bottom .StackedList")
+    );
+    const ungroupedImages = document.querySelectorAll("#unclassified img");
+    if (ungroupedImages.length > 0) {
+      errorBox.innerHTML =
+        '<crowd-alert type="error" dismissible>You must group all unassigned images. Please modify your answer.</crowd-alert>';
+      errorBox.scrollIntoView();
+      event.preventDefault();
+    }
+
+    const answer = groups.map(function (group) {
+      return Array.from(group.querySelectorAll("img")).map(function (item) {
+        return {
+          image_url: item.getAttribute("src"),
+          name: item.getAttribute("data-name"),
+        };
+      });
+    });
+    answerInput.value = JSON.stringify(answer);
+  };
+</script>
+
+<script>
+  const DEFAULT_IMAGE =
+    "https://upload.wikimedia.org/wikipedia/commons/5/57/Dolphin_silhouette.png";
+  let groupCount = 0;
+  const renderImagesTemplate = _.template(
+    document.querySelector("#images-template").innerHTML
+  );
+  const renderImageGroupTemplate = _.template(
+    document.querySelector("#image-group-template").innerHTML
+  );
+  const renderModalContent = _.template(
+    document.querySelector("#modal-content").innerHTML
+  );
+
+  function openModal(e) {
+    const imageUrl = e.currentTarget.getAttribute("src");
+    const name = e.currentTarget.getAttribute("data-name");
+    const infoUrl = e.currentTarget.getAttribute("data-info-url");
+    document.querySelector(
+      "#info-modal .modal-content"
+    ).innerHTML = renderModalContent({
+      image_url: imageUrl,
+      info_url: infoUrl,
+      name: name,
+    });
+    $("#info-modal").modal({
+      closeExisting: false,
+    });
+  }
+
+  const taskInput = JSON.parse(task_input_json.getAttribute("data-content"));
+  const images = taskInput.images.map(function (image) {
+    if (!("image_url" in image) || !image.image_url) {
+      image.image_url = DEFAULT_IMAGE;
+    }
+    return image;
+  });
+
+  const sortable = new Draggable.Sortable(
+    document.querySelectorAll(".StackedList"),
+    {
+      draggable: ".draggable",
+      delay: 300,
+      mirror: {
+        constrainDimensions: true,
+      },
+      plugins: [Draggable.Plugins.ResizeMirror],
+    }
+  );
+
+  sortable.on("sortable:stop", (e) => {
+    const newContainer = e.data.newContainer;
+    if (newContainer.classList.contains("NewGroup")) {
+      const div = document.createElement("div");
+      div.className = "column sm";
+      div.innerHTML = renderImageGroupTemplate({
+        number: ++groupCount,
+      });
+      document.querySelector("#dropBoxes .groups").append(div);
+      const list = div.querySelector(".StackedList");
+      list.append(e.dragEvent.data.source);
+      sortable.addContainer(list);
+    }
+  });
+  document.querySelector("#unclassified").insertAdjacentHTML(
+    "beforeend",
+    renderImagesTemplate({
+      images: _.shuffle(images),
+    })
+  );
+</script>
